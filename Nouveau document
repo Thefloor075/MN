@@ -1,0 +1,14 @@
+import matplotlib.pyplot as plt
+from random import *
+from math import *
+
+
+def f(lb,x):
+	return -1/lb * log(1 - x)
+
+n = 10000
+L = list(random() for _ in range(n))
+F = list(f(0.5,x) for x in L)
+
+plt.plot(F)
+plt.show()
