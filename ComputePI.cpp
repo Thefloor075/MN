@@ -4,10 +4,11 @@
 #include <chrono>
 #include <vector>
 #include <omp.h>
+#include <
 
 #define PI 3.14159265359
 
-
+namespace plt = matplotlibcpp;
 
 int main(){
 	int N = 100000;
