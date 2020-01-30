@@ -29,8 +29,8 @@ lb = 1/2
 p = lb*dt
 
 
-#Temps de simulation
-temp = 6 #secondes
+#Temps de simulation 
+temp = 6
 
 nb_step = int(temp/dt)
 
@@ -44,11 +44,13 @@ vec_Time = np.linspace(0, temp, num=nb_step)
 for _ in range(Nb_simul):
 	depart = depart_N0
 	for indice in range(nb_step):
+ 		# Génère un vecteur de taille du nombre de noyaux restant de l'espace. On regarde si la probabilité est supérieure à 			la probabilité de désintégration, si c'est ce cas le noyau se désintègre.
+		# On retire la somme du nombres de noyaux qui se sont désintégré
 		depart -= sum((np.random.rand(depart)<p).astype(int))
 		L[indice] += depart
 
 
-
+#Moyenne sur les N simulations
 inv = 1/Nb_simul
 L = inv*L
 

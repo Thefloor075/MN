@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 pi = math.pi
 s = 0
 
+
 A = 10
 D = 10
 B = 100
@@ -23,8 +24,10 @@ piT = []
 Approx_Pi = []
 
 for i in range(D,100000000):
+	#Generation de deux nombres aléatoires
 	x = random.random() 
 	y = random.random()
+	#Vérifie si le point appartient au cercle unité
 	if (x*x + y*y <= 1):
 		s+=1
 	if (i == A):
@@ -40,8 +43,7 @@ for i in range(D,100000000):
 		Th.append(i**(-0.5))
 
 
-print(4*s/i)
-	
+#Affichage des courbes
 figure()
 plt.plot(L,piT,'--')
 plt.plot(L,Approx_Pi)

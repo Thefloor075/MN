@@ -23,16 +23,20 @@ Nb_Sim = 1000
 L = [0 for _ in range(90)]
 L_ind = [0 for _ in range(90)]
 L_Th = [0 for _ in range(90)]
+
 for nn in range(Nb_Sim):
 	indice = 0
 	s = 0
 	A = 10
 	D = 10
 	B = 100
-	P = 5 
+	P = 5
+
 	for i in range(D,Nb_points):
+		#Generation de deux nombres aléatoires
 		x = random.random() 
 		y = random.random()
+		#Vérifie si le point appartient au cercle unité
 		if (x*x + y*y <= 1):
 			s+=1
 		if (i == A):
@@ -47,12 +51,12 @@ for nn in range(Nb_Sim):
 
 L = (1/Nb_Sim * np.array(L)) 
 
-
+#Affichage
 plt.plot(L_ind,L)
 plt.plot(L_ind,L_Th,'--')
 plt.title('pi moyenné et approximation de pi en fonction du nombre de points')
-plt.ylabel('Approximation du pi')
-plt.xlabel('Nombre de points')
+plt.ylabel('Erreur')
+plt.xlabel('Nombres de points')
 plt.legend()
 plt.grid(True,which="both",ls="--")
 plt.xscale('log')

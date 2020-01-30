@@ -5,7 +5,7 @@ from random import *
 
 def Acceptation_rejet(n,M,C,x_min,xmax):
 # M : Donné dans l'énoncé
-# x_min et x_max correspond à l'intervalle où on veut simuler f
+# x_min et x_max correspond à l'intervalle sur lequel on veut simuler f
 # n nombres d'échantillons
     echan = []
     for _ in range(n):
@@ -49,6 +49,8 @@ print("M : ",M1)
 M = 12
 C = 1.5
 
+
+#Affichage
 plt.plot(x, f(x), '--', label='f(x)')
 plt.plot(x, M*g(lb,x), label = 'g(x)')
 plt.xlabel('y')
@@ -56,10 +58,9 @@ plt.ylabel('x')
 plt.title('Simulation de f(x) par la méthode d\'Acceptation-Rejet')
 result1 = Acceptation_rejet(10000,M,C,x_min, x_max)
 
+
 nb_hist = 200
 
-
 plt.hist(result1, nb_hist, normed=1, facecolor='blue', alpha=0.5)
-#plt.hist(result2, nb_hist, normed=1, facecolor='red', alpha=0.5)
 plt.legend()
 plt.show()
