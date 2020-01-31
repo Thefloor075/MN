@@ -2,9 +2,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import solve
-from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-
 from matplotlib.pyplot import imshow
 
 
@@ -17,8 +14,8 @@ from matplotlib.pyplot import imshow
 Temps = 100e-9
 X = 1e-6 * 100
 
-n_X = 800
-n_T = 1000
+n_X = 80
+n_T = 100
 dx = X/n_X
 l2 = X/2
 dt = 1e-9
@@ -64,7 +61,6 @@ def f(i,j):
 def g(i,j):
 	x_i = dx*i
 	t_j = dt*j
-	#f(x) = e^ax df/dx = a e^ax
 	I = Intensity(x_i)
 	I_1 = Intensity(x_i - dx)
 	return t_j * np.exp( - s * I * t_j) * (I - I_1) *inv_dx
@@ -128,7 +124,7 @@ BB = update_B(BB)
 
 for j in range(1,n_T):
 	#Init 0
-	Eprime = np.zeros([n_X,1]) 
+	Eprime = np.zeros([n_X,1])
 	E = solve(P,BB)
 	E = verify_E(E)
 	E_final = update_Efinal(E,j)
@@ -145,7 +141,9 @@ for j in range(1,n_T):
 		BB = update_B(BB)	
 	E = update_Efinal(E,j)
 
-imshow(E_final)
+
+imshow(E_final,extent=[0,n_T,0,n_X])
+plt.colorbar()
 plt.show()
 
 	
