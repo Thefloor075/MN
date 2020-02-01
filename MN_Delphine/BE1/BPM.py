@@ -1,21 +1,14 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import solve
 from matplotlib.pyplot import imshow
 
 
-#eq : e_0 e_r ( d2 E / dx dt - u E d2E / d2x ) + e u (N_d - N_A)( 1 - e^( - s I_em t ) dE/dx + e u (N_d - N_a) t * e^(-s I_em t) dIem / dx E = 0
-
-#CI
-#E(x, t) = E_ext lim x -> +infty 
-#E(x, 0) = E_ext
-
 Temps = 100e-9
-X = 1e-6 * 100
+X = 1e-6 * 400
 
-n_X = 80
-n_T = 100
+n_X = 1080
+n_T = 1920
 dx = X/n_X
 l2 = X/2
 dt = 1e-9
@@ -31,6 +24,8 @@ Ext = 2500/(4e-3)
 
 
 E_final = Ext*np.ones([n_X, n_T])
+E_0 = Ext*np.ones([n_X,1]);
+E_final[:,0] = E_0[:,0]
 
 P = np.zeros([n_X,n_X])
 
@@ -53,7 +48,7 @@ eps_tot_invdt = eps_tot*inv_dt
 def Intensity(x):
 	inv = -1/(a_0*a_0)
 	b = (x - l2)
-	return 1e11*np.exp(inv*b*b)
+	return 1e10*np.exp(inv*b*b)
 
 def f(i,j): 
 	return 1 - np.exp(- s * Intensity(dx*i) * j * dt)
@@ -63,7 +58,7 @@ def g(i,j):
 	t_j = dt*j
 	I = Intensity(x_i)
 	I_1 = Intensity(x_i - dx)
-	return t_j * np.exp( - s * I * t_j) * (I - I_1) *inv_dx
+	return t_j * np.exp( - s * I * t_j) * (I - I_1) * inv_dx
 	
 
 def A(i,j):
@@ -86,12 +81,15 @@ def c(i,j):
 	return A(i,j)*inv_dx*inv_dx
 
 def d(i,j):
-	return eps_tot_invdt * inv_dx * (- E_final[i][j-1] + E_final[i-1][j-1])
-
+	if i == 0:
+		return eps_tot_invdt * inv_dx * (- E_final[i][j-1] + Ext )
+	else:
+		return eps_tot_invdt * inv_dx * (- E_final[i][j-1] + E_final[i-1][j-1])
+	
 def update_P(P):
 	for k in range(n_X-1):
 		P[k][k] = b(k,j)
-		P[k+1][k] = a(k,j)
+		P[k+1][k] = a(k+1,j)
 		P[k][k+1] = c(k,j)
 	P[n_X-1][n_X-1] = b(n_X-1,j)
 	return P
@@ -101,6 +99,7 @@ def update_B(BB):
 	for k in range(1,n_X-1):
 		BB[k][0] = - d(k,j)
 	BB[0][0] = -(a(0,j) * Ext + d(0,j))
+
 	BB[n_X-1][0] = -(c(n_X-1,j) * Ext + d(n_X-1,j))
 	return BB
 
@@ -130,7 +129,7 @@ for j in range(1,n_T):
 	E_final = update_Efinal(E,j)
 	P = update_P(P)
 	BB = update_B(BB)
-	#print(j)
+	print(j)
 	while np.linalg.norm(Eprime - E) > error:
 		#print(np.linalg.norm(Eprime - E))
 		Eprime = E

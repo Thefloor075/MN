@@ -4,54 +4,47 @@
 #include <stdint.h>
 #include <omp.h>
 #include <math.h>
+#include <Eigen/Core> 
+#include <Eigen/Sparse>
+#include <Eigen/Dense>
+#include <bits/stdc++.h>
 
 // Pour faire un programme rapide
 // Ne fonctionne pas encore
 
-#define CHANNEL_NUM 1
+using namespace Eigen;
 
+int N_X;
+int N_T;
+int nb_thread;
 
-double Intensity(double x);
-
-double f(int i, int j);
-
-double g(int i,int j);
-
-double A(int i,int j);
-
-double C(int i,int j);
-
-double D(int i,int j);
+int array_size(int &N_X, int &N_T, int &nb_thread)
+{
+	std::ifstream input("input.txt");
+	input >> N_X >> N_T >> nb_thread;
+	return 1;
 	
-double a(int i,int j);
+}
+int* array = new int[array_size(N_X, N_T, nb_thread)];
 
-double b(int i,int j);
+// Vector & Matrix
 
-double c(int i,int j);
-
-double d(int i,int j);
-
-void update_P(double* P);
-
-void update_BB(double* BB);
-
-void update_Efinal(double* BB, int j);
-
-void verify_E(double* E);
-
-double norm(const double* E1,const double* E2);
-
-void reset_E(double* E);
-
+MatrixXd E_final(N_X,N_T);
+MatrixXd P(N_X,N_X);
+VectorXd E(N_X);
+VectorXd Eprime(N_X);
+VectorXd BB(N_X);
 
 //Constantes
+
 double X = pow(10.0, -6) * 100;
-int j = 0;
-int N_X = 80;
-int N_T = 100;
+int j = 1;
+
+double t = pow(10.0, -9)* 100;
+
 double dx = X/N_X;
 double l2 = X/2;
-double dt = pow(10.0, -9);
+double dt = t/N_T;
 double eps_0 = 8.85*pow(10.0, -12);
 double eps_r = 55;
 double nu = 6*pow(10.0, -7);
@@ -60,7 +53,8 @@ double e = 1.602*pow(10.0, -19);
 double N_d = 3.2*pow(10.0, 21);
 double N_a = 9*pow(10.0, 20);
 double a_0 = 1*pow(10.0, -5);
-double Ext = 2500/(4*pow(10.0, -3));
+double Ext = 625000;
+
 double coef_N = e*nu* (N_d - N_a);
 double coef_Ns = coef_N*s;
 double inv_dx = 1/dx;
@@ -68,151 +62,187 @@ double inv_dt = 1/dt;
 double eps_tot = eps_0*eps_r;
 double eps_tot_nu = -eps_tot*nu;
 double eps_tot_invdt = eps_tot*inv_dt;
-double* E_final = (double*)malloc(N_T*N_X*sizeof(double));
 
+inline double Intensity(double x);
 
+inline double f(int i, int j);
+
+inline double g(int i,int j);
+
+inline double A(int i,int j);
+
+inline double C(int i,int j);
+
+inline double D(int i,int j);
+	
+inline double a(int i,int j);
+
+inline double b(int i,int j);
+
+inline double c(int i,int j);
+
+inline double d(int i,int j);
+
+inline void update_P_BB(MatrixXd& P, VectorXd& BB);
+
+inline void update_Efinal(VectorXd& BB, int j);
+
+inline void reset_E(VectorXd& E);
 
 int main(){
+	delete array;
 
-	for(int i = 0; i < N_T*N_X; i++){
-		E_final[i] = Ext;	
-	}
+	std::ofstream ppmFile("output_image.ppm", std::ios::out | std::ios::binary);
+	ppmFile << "P6" << std::endl;
+	ppmFile << N_T << " " << N_X << std::endl;
+	ppmFile << "255" << std::endl;
 
-	size_t sizeVector_E = (size_t) N_X*sizeof(double); 
-	double* P = (double*)malloc(N_X*N_X*sizeof(double));
-	double* E = (double*)malloc(sizeVector_E);
-	double* Eprime = (double*) malloc(sizeVector_E);
-	double* BB = (double*) malloc(sizeVector_E);
-	
-	double error = pow(10.0, -5);
-	double square = error*error;
-	double norme;
-	//Init
-	int j = 0;
+	omp_set_num_threads(nb_thread);
+	Eigen::setNbThreads(nb_thread);
 
+	const int long WIDTH = N_T;
+	const int long HEIGHT = N_X;
 
-	update_P(P);
-	update_BB(BB);
-	
-	std::cout << N_T << std::endl;
-	for (j = 1; j < N_T; j++){
-
-		//Init 0
-		reset_E(Eprime);
-		//E = solve(P,BB)
-		verify_E(E);
-		update_Efinal(E,j);
-		update_P(P);
-		update_BB(BB);
-		//print(j)
-		norme = norm(E,Eprime);
-		while(norme > square){
-			std::cout << j << " " << norme << std::endl;
-			//Eprime = E;
-			//E = solve(P,BB);
-			verify_E(E);
-			update_Efinal(E,j);
-			update_P(P);
-			update_BB(BB);	
-			norme = norm(E,Eprime);	
+	#pragma omp parallel for
+	for (int p = 0; p < N_X; p++){
+		E(p) = 0;
+		Eprime(p) = 0;
+		BB(p) = 0;
+		for(int c = 0; c < N_X; c++){
+			P(p,c) = 0;	
 		}
-		update_Efinal(E,j);
 	}
-	std::cout << "Finish " << std::endl;
+	
+	#pragma omp parallel for
+	for (int p = 0; p < N_X; p++){
+		for(int c = 0; c < N_T; c++){
+			E_final(p,c) = Ext;			
+		}
+	}
+	double error = pow(10.0, -3);
+	//Init
+
+	update_P_BB(P,BB);
+
+	for (; j < N_T; j++){
+		reset_E(Eprime);
+		E = P.inverse()*BB;
+		update_Efinal(E,j);
+		update_P_BB(P,BB);
+		std::cout << "j : " << j << std::endl;
+		while((E-Eprime).norm() > error){
+			Eprime = E;
+			E = P.inverse()*BB;
+			update_Efinal(E,j);
+			update_P_BB(P,BB);
+			
+		}
+	}
+	
+	
+	int min = Ext;
+	for (int x = 0; x < HEIGHT; x++){
+		for (int y = 0; y < WIDTH; y++){
+			if(E_final(x,y) < min){
+				min = E_final(x,y);
+			}
+		}	
+	}
+	uint8_t rgbTriplet[3];
+	for (int x = 0; x < HEIGHT; x++){
+		for (int y = 0; y < WIDTH; y++){
+			    int n = E_final(x,y)/static_cast<int>(E_final(x,y)-min);
+			    rgbTriplet[0] = sqrt(n);
+			    rgbTriplet[1] = n;
+			    rgbTriplet[2] = n;
+			    ppmFile.write((char *)rgbTriplet, 3);
+		}
+
+	}
+	//stbi_write_jpg("stbjpg3.jpg", WIDTH, HEIGHT, CHANNEL_NUM, rgb_image, WIDTH);
+	//free(rgb_image);
+	return 0;
+
+
 }
 
-double Intensity(double x){
-	double inv = -1/(a_0*a_0);
+inline double Intensity(double x){
+	static double I = pow(10.0,11.0);
+	static double inv = -1/(a_0*a_0);
 	double b = (x - l2);
-	return pow(10.0,11.0)*exp(inv*b*b);
+	return I*exp(inv*b*b);
 }
 
-double f(int i, int j){
-	return 1 - exp(- s * Intensity(static_cast<double>(dx*i)) * j * dt);
+inline double f(int i, int j){
+	return 1 - exp(- s * Intensity(dx*i) * j * dt);
 }
 
-double g(int i,int j){
+inline double g(int i,int j){
 	double x_i = dx*i;
 	double t_j = dt*j;
-	double I = Intensity(x_i);
-	double I_1 = Intensity(x_i - dx);
-	return t_j * exp( - s * I * t_j) * (I - I_1) *inv_dx;
+	double I = Intensity(dx*i);
+	return t_j * exp( - s * I * t_j) * (I - Intensity(x_i - dx)) *inv_dx;
 }	
 
-double A(int i,int j){
-	return eps_tot_nu*E_final[i+N_X*j];
+inline double A(int i,int j){
+	return eps_tot_nu*E_final(i,j);
 }
 
-double C(int i,int j){
+inline double C(int i,int j){
 	return coef_N * f(i,j);
 }
 
 
-double D(int i,int j){
+inline double D(int i,int j){
 	return coef_Ns * g(i,j);
 }
 	
-double a(int i,int j){
+inline double a(int i,int j){
 	return inv_dx*(A(i,j)*inv_dx - eps_tot_invdt - C(i,j));
 }
 
-double b(int i,int j){
+inline double b(int i,int j){
 	return inv_dx*(- 2*A(i,j)*inv_dx + eps_tot_invdt + C(i,j)) + D(i,j);
 }
 
-double c(int i,int j){
+inline double c(int i,int j){
 	return A(i,j)*inv_dx*inv_dx;
 }
 
-double d(int i,int j){
-	return eps_tot_invdt * inv_dx * (- E_final[i+N_X*(j-1)] + E_final[i-1 + N_X*(j-1)]);
-}
-
-void update_P(double* P){
-	for( int k = 1; k < N_X; k++){
-		P[k+N_X*k] = b(k,j);
-		P[k+1 + N_X*k] = a(k,j);
-		P[k+N_X*(k+1)] = c(k,j);
+inline double d(int i,int j){
+	if( i == 0){
+		return eps_tot_invdt * inv_dx * (- E_final(i,j-1) + Ext);
 	}
-	P[(N_X+1)*(N_X-1)] = b(N_X-1,j);
+	return eps_tot_invdt * inv_dx * (- E_final(i,j-1) + E_final(i-1,j-1));
 }
 
-void update_BB(double* BB){
-	for (int k = 1; k < N_X; k++){
-		BB[k] = - d(k,j);
+inline void update_P_BB(MatrixXd& P, VectorXd& BB){
+	#pragma omp parallel for
+	for( int k = 1; k < N_X-1; k++){
+		BB(k) = - d(k,j);
+		P(k,k) = b(k,j);
+		P(k+1,k) = a(k+1,j);
+		P(k,k+1) = c(k,j);
 	}
-	BB[0] = -(a(0,j) * Ext + d(0,j));
-	BB[N_X-1] = -(c(N_X-1,j) * Ext + d(N_X-1,j));
+	P(0,0) = b(0,j);
+	P(1,0) = a(1,j);
+	P(0,0+1) = c(0,j);
+	P(N_X-1,N_X-1) = b(N_X-1,j);
+	BB(0) = -(a(0,j) * Ext + d(0,j));
+	BB(N_X-1) = -(c(N_X-1,j) * Ext + d(N_X-1,j));
 }
 
-void update_Efinal(double* H, int j){
+
+inline void update_Efinal(VectorXd& H,int j){
 	for (int i = 0; i < N_X; i++){
-		E_final[i+N_X*j] = H[i];
+		double A = H(i);
+		H(i) = std::max(H(i), 0.0);
+		E_final(i,j) = A;
 	}	
 }
 
-void verify_E(double* E){
-	for(int k = 0; k < N_X; k++){
-		E[k] = std::max(E[k],0.0);
-	} 
-}
-
-
-double norm(const double* E1,const double* E2){
-	double sum = 0;
-	double diff = 0;
-	for (int i = 0; i < N_X; i++){
-		diff = E1[i] - E2[i];
-		sum += diff*diff;
-	}
-	return sum;
-}
-
-void reset_E(double* E){
-	for(int k = 0; k < N_X; k++){
-		E[k] = 0;
+inline void reset_E(VectorXd& E){
+	for(int i = 0; i < N_X; i++){
+		E(i) = 0;
 	}
 }
-
-
-
