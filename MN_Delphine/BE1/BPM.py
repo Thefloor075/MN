@@ -11,15 +11,14 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 #Temps & Espace
 Temps = 100e-9
-X = 1e-6 * 100
-
+largeur = 80e-6
 
 #Constantes
-n_X = 108
-n_T = 192
-dx = X/n_X
-l2 = X/2
-dt = 1e-9
+n_X = 800
+n_T = 1000
+dx = 1e-7
+l2 = n_X*dx/2
+dt = 1e-10
 eps_0 = 8.85e-12
 eps_r = 55
 nu = 6e-7
@@ -33,10 +32,8 @@ j = 0
 
 
 #Matrices & Vector
-E_final = Ext*np.ones([n_X, n_T])
-E_0 = Ext*np.ones([n_X,1]);
-E_final[:,0] = E_0[:,0]
-
+E_final = Ext*np.ones([n_X+2, n_T])
+E_final2 = Ext*np.ones([n_X, n_T])
 P = np.zeros([n_X,n_X])
 
 E = np.zeros([n_X,1])
@@ -58,68 +55,71 @@ eps_tot_nu = -eps_tot*nu
 eps_tot_invdt = eps_tot*inv_dt
 
 
-def Intensity(x):
-	inv = -1/(a_0*a_0)
-	b = (x - l2)
-	return 1e10*np.exp(inv*b*b)
+def Intensity(i,j):
+	b = (i*dx - l2)/a_0
+	#b = (i*dx)/a_0	
+	return 1e10*np.exp(-b*b)
 
+def d_Intensity(i,j):
+	return -2*(dx*i-l2)/(a_0**2) * Intensity(i,j)
 
 def f(i,j): 
-	return 1 - np.exp(- s * Intensity(dx*i) * j * dt)
+	return 1 - np.exp(- s * Intensity(i,j) * j * dt)
 
 
 def g(i,j):
-	x_i = dx*i
-	t_j = dt*j
-	I = Intensity(x_i)
-	I_1 = Intensity(x_i - dx)
-	return t_j * np.exp( - s * I * t_j) * (I - I_1) * inv_dx
+	t_j = j*dt
+	return t_j * d_Intensity(i,j) * np.exp( - s * Intensity(i,j) * t_j ) 
 	
 
 def A(i,j):
 	return eps_tot_nu*E_final[i][j]
 
-#B(i,j) est constant
+def B(i,j):
+	return eps_tot
 
 def C(i,j):
 	return coef_N * f(i,j)
 
 def D(i,j):
-	return coef_Ns * g(i,j)
+	return coef_Ns * s * g(i,j)
 	
 
 def a(i,j):
-	return inv_dx*(A(i,j)*inv_dx - eps_tot_invdt - C(i,j))
+	return ( A(i,j)/(dx*dx) - B(i,j)/(dx*dt) - C(i,j)/dx)
 
 def b(i,j):
-	return inv_dx*(- 2*A(i,j)*inv_dx + eps_tot_invdt + C(i,j)) + D(i,j)
+	return (- 2*A(i,j)/(dx*dx) + B(i,j)/(dx*dt) + C(i,j)/dx + D(i,j))
 
 def c(i,j):
-	return A(i,j)*inv_dx*inv_dx
+	return A(i,j)/(dx*dx)
 
 def d(i,j):
 	#Problème sur ce coefficient. d(0,j) n'existe pas
-	return eps_tot_invdt * inv_dx * (- E_final[i][j-1] + E_final[i-1][j-1])
-	#_____________________________________________________________^________
+	return  B(i,j)/(dx*dt) * (- E_final[i][j-1] + E_final[i-1][j-1])
+	#______________________________________________________^________
 	
 def update_P(j):
-	for k in range(n_X-1):
-		P[k][k] = b(k,j)
-		P[k+1][k] = a(k+1,j)
-		P[k][k+1] = c(k,j)
-	P[n_X-1][n_X-1] = b(n_X-1,j)
+	for k in range(0,n_X-1):
+		P[k][k] = b(k+1,j)
+		P[k+1][k] = a(k+2,j)
+		P[k][k+1] = c(k+1,j)
+	P[n_X-1][n_X-1] = b(n_X,j)
 
 def update_B(j):
 	for k in range(1,n_X-1):
-		BB[k][0] = - d(k,j)
-	BB[0][0] = -(a(0,j) * Ext + d(0,j))
-	BB[n_X-1][0] = -(c(n_X-1,j) * Ext + d(n_X-1,j))
+		BB[k][0] = - d(k+1,j)
+	BB[0][0] = -(a(1,j) * Ext + d(1,j))
+	BB[n_X-1][0] = -(c(n_X,j) * Ext + d(n_X,j))
 
 def update_Efinal(H,j):
-	E_final[:,j] = H[:,0]
+	E_final2[:,j] = H[:,0]
+	for i in range(n_X):
+		E_final[i+1,j] = H[i,0]
 
 
 def verify_E(E):
+	#E = np.where(E > Ext, Ext, E)
 	return np.where(E < 0, 0, E)
 
 
@@ -129,11 +129,11 @@ def affichage():
 	Temsp, Espace = np.meshgrid(Temps, Espace)
 	fig = plt.figure()
 	ax = fig.gca(projection='3d')
-	surf = ax.plot_surface(Temps , Espace, E_final, cmap=cm.coolwarm,linewidth=0, antialiased=False)
+	surf = ax.plot_surface(Temps , Espace, E_final2, cmap=cm.coolwarm,linewidth=0, antialiased=False)
 	plt.show()
 
 def main():
-	error = 1e-5
+	error = 1e-6
 	#Init
 	j = 0
 	update_P(j)
@@ -142,7 +142,7 @@ def main():
 		#Init Eprime
 		Eprime = np.zeros([n_X,1])
 		E = solve(P,BB)
-		E =verify_E(E)
+		E = verify_E(E)
 		E_final = update_Efinal(E,j)
 		update_P(j)
 		update_B(j)
