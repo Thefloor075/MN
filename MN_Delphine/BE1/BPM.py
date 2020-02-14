@@ -6,12 +6,12 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 #Temps & Espace
-Temps = 50e-9
+Temps = 10e-9
 largeur = 80e-6
 
 #Constantes
-n_X = 80
-n_T = 100
+n_X = 160
+n_T = 200
 dx = largeur/n_X
 l2 = largeur/2
 dt = Temps/n_T

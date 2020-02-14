@@ -7,7 +7,7 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 
 #Def Temps et espace
-Temps = 10e-9
+Temps = 50e-9
 l = 100e-4
 
 #Def constantes
